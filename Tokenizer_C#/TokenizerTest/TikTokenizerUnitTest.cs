@@ -1,10 +1,13 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Text;
+using System.Text.Unicode;
 using System.Threading.Tasks;
 using Microsoft.DeepDev;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -63,7 +66,25 @@ namespace TokenizerTest
 
         private void VocabularyStats(string fileName, Dictionary<byte[], int> vocabulary)
         {
+            var textToToken = new Dictionary<string, int>(vocabulary.Count, StringComparer.OrdinalIgnoreCase);
             Log($"{fileName} {vocabulary.Count} tokens");
+            var chars = new char[2048];
+            foreach (var (bytes, token) in vocabulary)
+            {
+                var text = Encoding.UTF8.GetString(bytes);
+
+                textToToken.TryAdd(text, token);
+                //var status = Utf8.ToUtf16(bytes, chars, out var bytesRead, out var charsWritten);
+                //if (status == OperationStatus.Done)
+                //{
+
+                //}
+                //else
+                //{
+                //    throw new InvalidDataException($"{status}");
+                //}
+            }
+            Log($"{fileName} {textToToken.Count} if ordinal ignore case");
         }
 
         [TestMethod]
