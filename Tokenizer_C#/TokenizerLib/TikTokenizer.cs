@@ -96,7 +96,7 @@ namespace Microsoft.DeepDev
         /// <param name="tikTokenBpeFileStream">Stream to the BPE rank file</param>
         /// <returns>Map of byte[] to integer token id</returns>
         /// <exception cref="InvalidOperationException"></exception>
-        private Dictionary<byte[], int> LoadTikTokenBpe(Stream tikTokenBpeFileStream)
+        public static Dictionary<byte[], int> LoadTikTokenBpe(Stream tikTokenBpeFileStream)
         {
             var bpeDict = new Dictionary<byte[], int>(new ByteArrayComparer());
             try

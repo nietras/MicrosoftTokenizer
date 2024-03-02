@@ -1,11 +1,14 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Net.Http;
+using System.Threading.Tasks;
 using Microsoft.DeepDev;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading.Tasks;
 
 namespace TokenizerTest
 {
@@ -34,6 +37,33 @@ namespace TokenizerTest
             Tokenizer_p50k_base = await TokenizerBuilder.CreateByEncoderNameAsync("p50k_base");
             Tokenizer_r50k_base = await TokenizerBuilder.CreateByEncoderNameAsync("r50k_base");
             Tokenizer_p50k_edit = await TokenizerBuilder.CreateByEncoderNameAsync("p50k_edit");
+        }
+
+        [TestMethod]
+        public async Task DownloadAndStats()
+        {
+            foreach (var (name, url) in TokenizerBuilder.NameToVocabularyUrl)
+            {
+                var fileName = name + ".tiktoken";
+                if (!File.Exists(fileName))
+                {
+                    using var httpClient = new HttpClient();
+                    using var urlStream = await httpClient.GetStreamAsync(url);
+                    using var localStream = new FileStream(fileName, FileMode.Create, FileAccess.Write);
+                    urlStream.CopyTo(localStream);
+                    Log($"Downloaded {fileName}");
+                }
+                using var stream = new FileStream(fileName, FileMode.Open, FileAccess.Read);
+                var vocabulary = TikTokenizer.LoadTikTokenBpe(stream);
+                VocabularyStats(fileName, vocabulary);
+            }
+        }
+
+        static readonly Action<string> Log = t => { Trace.WriteLine(t); };
+
+        private void VocabularyStats(string fileName, Dictionary<byte[], int> vocabulary)
+        {
+            Log($"{fileName} {vocabulary.Count} tokens");
         }
 
         [TestMethod]

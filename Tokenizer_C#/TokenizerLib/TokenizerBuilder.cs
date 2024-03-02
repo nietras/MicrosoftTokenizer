@@ -2,11 +2,11 @@
 // Licensed under the MIT License.
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.IO;
+using System.Linq;
 using System.Net;
-using System.Reflection;
 using System.Net.Http;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace Microsoft.DeepDev
@@ -70,7 +70,17 @@ namespace Microsoft.DeepDev
         private const string FIM_MIDDLE = "<|fim_middle|>";
         private const string FIM_SUFFIX = "<|fim_suffix|>";
         private const string ENDOFPROMPT = "<|endofprompt|>";
-
+        private const string p50k_base = @"https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken";
+        private const string cl100k_base = @"https://openaipublic.blob.core.windows.net/encodings/cl100k_base.tiktoken";
+        private const string r50k_base = @"https://openaipublic.blob.core.windows.net/encodings/r50k_base.tiktoken";
+        private const string gpt2 = @"https://pythia.blob.core.windows.net/public/encoding/gpt2.tiktoken";
+        public static IReadOnlyDictionary<string, string> NameToVocabularyUrl = new Dictionary<string, string>()
+        {
+            { nameof(gpt2), gpt2 },
+            { nameof(r50k_base), r50k_base },
+            { nameof(p50k_base), p50k_base },
+            { nameof(cl100k_base), cl100k_base },
+        };
         private static readonly HttpClient _httpClient = new HttpClient();
 
         /// <summary>
@@ -110,7 +120,7 @@ namespace Microsoft.DeepDev
             {
                 case "cl100k_base":
                     var regexPatternStr = @"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+";
-                    var mergeableRanksFileUrl = @"https://openaipublic.blob.core.windows.net/encodings/cl100k_base.tiktoken";
+                    var mergeableRanksFileUrl = cl100k_base;
                     var specialTokens = new Dictionary<string, int>{
                                             { ENDOFTEXT, 100257},
                                             { FIM_PREFIX, 100258},
@@ -126,7 +136,7 @@ namespace Microsoft.DeepDev
                     return await CreateTokenizerAsync(regexPatternStr, mergeableRanksFileUrl, specialTokens);
                 case "p50k_base":
                     regexPatternStr = @"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+";
-                    mergeableRanksFileUrl = @"https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken";
+                    mergeableRanksFileUrl = p50k_base;
                     specialTokens = new Dictionary<string, int>{
                                             { ENDOFTEXT, 50256}
                                         };
@@ -138,7 +148,7 @@ namespace Microsoft.DeepDev
                     return await CreateTokenizerAsync(regexPatternStr, mergeableRanksFileUrl, specialTokens);
                 case "p50k_edit":
                     regexPatternStr = @"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+";
-                    mergeableRanksFileUrl = @"https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken";
+                    mergeableRanksFileUrl = p50k_base;
                     specialTokens = new Dictionary<string, int>{
                                             { ENDOFTEXT, 50256 },
                                             { FIM_PREFIX, 50281 },
@@ -153,7 +163,7 @@ namespace Microsoft.DeepDev
                     return await CreateTokenizerAsync(regexPatternStr, mergeableRanksFileUrl, specialTokens);
                 case "r50k_base":
                     regexPatternStr = @"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+";
-                    mergeableRanksFileUrl = @"https://openaipublic.blob.core.windows.net/encodings/r50k_base.tiktoken";
+                    mergeableRanksFileUrl = r50k_base;
                     specialTokens = new Dictionary<string, int>{
                                             { ENDOFTEXT, 50256 },
                                         };
@@ -165,7 +175,7 @@ namespace Microsoft.DeepDev
                     return await CreateTokenizerAsync(regexPatternStr, mergeableRanksFileUrl, specialTokens);
                 case "gpt2":
                     regexPatternStr = @"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+";
-                    mergeableRanksFileUrl = @"https://pythia.blob.core.windows.net/public/encoding/gpt2.tiktoken";
+                    mergeableRanksFileUrl = gpt2;
                     specialTokens = new Dictionary<string, int>{
                                             { ENDOFTEXT, 50256 },
                                         };
