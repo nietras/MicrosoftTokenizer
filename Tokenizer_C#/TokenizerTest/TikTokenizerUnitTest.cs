@@ -63,6 +63,10 @@ namespace TokenizerTest
                 var vocabulary = TikTokenizer.LoadTikTokenBpe(stream);
                 VocabularyStats(fileName, vocabulary);
             }
+            // https://lukesalamone.github.io/posts/gpt2-tokenization/
+            // https://twitter.com/RiversHaveWings/status/1623910859188895747
+            // https://www.lesswrong.com/posts/8viQEp8KBg2QSW4Yc/solidgoldmagikarp-iii-glitch-token-archaeology
+            // SolidGoldMagikarp
         }
 
         static readonly Action<string> Log = t => { Trace.WriteLine(t); };
@@ -116,14 +120,15 @@ namespace TokenizerTest
             var sorted = bytesToTokenAccum.OrderByDescending(kv => kv.Value.Tokens.Count).ToList();
 
             Log("REPEATED TOKENS");
-            foreach (var (normText, accum) in sorted.Take(20))
+            foreach (var (normText, accum) in sorted.Take(100))
             {
                 Log($"'{EscapeSpecialWhiteSpace(accum.Text)}' Count {accum.Tokens.Count} Tokens: " +
                     $"{string.Join(", ", accum.Tokens.Select(t => $"'{EscapeSpecialWhiteSpace(t.Text)}':0x{BitConverter.ToString(t.Bytes)}:{t.Id}"))}");
             }
 
             Log("LONG TOKENS");
-            vocabulary.OrderByDescending(p => p.Key.Length).Take(20).ToList().ForEach(kv =>
+            var take = fileName.Contains("cl100k_base") ? 500 : 100;
+            vocabulary.OrderByDescending(p => p.Key.Length).Take(take).ToList().ForEach(kv =>
             {
                 var (bytes, token) = kv;
                 var text = Encoding.UTF8.GetString(bytes);
