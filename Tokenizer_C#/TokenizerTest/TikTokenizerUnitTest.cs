@@ -12,6 +12,7 @@ using System.Text.Unicode;
 using System.Threading.Tasks;
 using Microsoft.DeepDev;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Microsoft.VisualStudio.TestTools.UnitTesting.Logging;
 using Newtonsoft.Json;
 
 namespace TokenizerTest
@@ -78,22 +79,46 @@ namespace TokenizerTest
             var chars = new char[2048];
             foreach (var (bytes, token) in vocabulary)
             {
-                var text = Encoding.UTF8.GetString(bytes);
-                var trimmed = text.Trim();
-                var maybeTrimmed = trimmed.Length > 0 ? trimmed : text;
-                if (!textToTokenAccum.TryGetValue(maybeTrimmed, out var accum))
+                // check if bytes is a valid and full utf8 sequence
+                //var status = Utf8.ToUtf16(bytes, chars, out var bytesRead, out var charsWritten, replaceInvalidSequences: false);
+                //if (status != OperationStatus.Done)
+                //{
+                //    Log($"Invalid utf8 sequence: {BitConverter.ToString(bytes)}");
+                //    continue;
+                //}
+
+                // If only 1 byte then might be partial utf8 sequence
+                // This needs special handling, since such a byte cannot be converted to a string
+                if (bytes.Length == 1)
                 {
-                    var lower = maybeTrimmed.ToLowerInvariant();
-                    accum = new();
-                    textToTokenAccum.Add(lower, accum);
+                    var byteAsText = $"!<{bytes[0]:D3}>!";
+                    var byteAccum = new TokenAccum();
+                    byteAccum.Tokens.Add(new(bytes, byteAsText, token));
+                    textToTokenAccum.Add(byteAsText, byteAccum);
                 }
-                accum.Tokens.Add(new(bytes, text, token));
+                // Really what needs to be handled is whether utf8 byte sequence is valid/full etc.
+                else
+                {
+                    var text = Encoding.UTF8.GetString(bytes);
+                    var trimmed = text.Trim(' ');
+                    var maybeTrimmed = trimmed.Length > 0 ? trimmed : text;
+                    if (!textToTokenAccum.TryGetValue(maybeTrimmed, out var accum))
+                    {
+                        var lower = maybeTrimmed.ToLowerInvariant();
+                        accum = new();
+                        textToTokenAccum.Add(lower, accum);
+                    }
+                    accum.Tokens.Add(new(bytes, text, token));
+                }
             }
-            Log($"{fileName} {textToTokenAccum.Count} if ordinal ignore case and trimmed");
-            //foreach (var (normText, accum) in textToTokenAccum.Take(512))
-            //{
-            //    Log($"{normText} {accum.Tokens.Count}");
-            //}
+            Log($"{fileName} {textToTokenAccum.Count} if ordinal ignore case and trim spaces");
+
+            var sorted = textToTokenAccum.OrderByDescending(kv => kv.Value.Tokens.Count).ToList();
+
+            foreach (var (normText, accum) in sorted.Take(8))
+            {
+                Log($"'{normText}' Count {accum.Tokens.Count} Tokens: {string.Join(", ", accum.Tokens.Select(t => $"{t.Id}:'{t.Text.Replace("\r", "\\r").Replace("\n", "\\n")}':0x{BitConverter.ToString(t.Bytes)}"))}");
+            }
         }
 
         [TestMethod]
