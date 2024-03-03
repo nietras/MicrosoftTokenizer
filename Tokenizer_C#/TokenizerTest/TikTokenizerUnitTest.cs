@@ -11,6 +11,7 @@ using System.Text;
 using System.Text.Unicode;
 using System.Threading.Tasks;
 using Microsoft.DeepDev;
+using Microsoft.DeepDev.TokenizerLib.Utils;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.VisualStudio.TestTools.UnitTesting.Logging;
 using Newtonsoft.Json;
@@ -67,58 +68,70 @@ namespace TokenizerTest
         static readonly Action<string> Log = t => { Trace.WriteLine(t); };
 
         record Token(byte[] Bytes, string Text, int Id);
-        record TokenAccum
+        record TokenAccum(string Text) // Text may be substitute if "invalid"/incomplete utf8 sequence
         {
             public List<Token> Tokens { get; } = new();
         }
 
         private void VocabularyStats(string fileName, Dictionary<byte[], int> vocabulary)
         {
-            var textToTokenAccum = new Dictionary<string, TokenAccum>(vocabulary.Count, StringComparer.OrdinalIgnoreCase);
-            Log($"{fileName} {vocabulary.Count} tokens");
+            var bytesToTokenAccum = new Dictionary<byte[], TokenAccum>(vocabulary.Count, new ByteArrayComparer());
             var chars = new char[2048];
             foreach (var (bytes, token) in vocabulary)
             {
                 // check if bytes is a valid and full utf8 sequence
-                //var status = Utf8.ToUtf16(bytes, chars, out var bytesRead, out var charsWritten, replaceInvalidSequences: false);
-                //if (status != OperationStatus.Done)
-                //{
-                //    Log($"Invalid utf8 sequence: {BitConverter.ToString(bytes)}");
-                //    continue;
-                //}
-
-                // If only 1 byte then might be partial utf8 sequence
-                // This needs special handling, since such a byte cannot be converted to a string
-                if (bytes.Length == 1)
+                var status = Utf8.ToUtf16(bytes, chars, out var bytesRead, out var charsWritten, replaceInvalidSequences: false);
+                if (status != OperationStatus.Done || charsWritten <= 0)
                 {
-                    var byteAsText = $"!<{bytes[0]:D3}>!";
-                    var byteAccum = new TokenAccum();
+                    //Log($"Invalid utf8 sequence: {BitConverter.ToString(bytes)}");
+                    // If only 1 byte then might be partial utf8 sequence
+                    // This needs special handling, since such a byte cannot be converted to a string
+                    //if (bytes.Length == 1)
+                    //{
+                    var byteAsText = $"!<{BitConverter.ToString(bytes)}>!";
+                    var byteAccum = new TokenAccum(byteAsText);
                     byteAccum.Tokens.Add(new(bytes, byteAsText, token));
-                    textToTokenAccum.Add(byteAsText, byteAccum);
+                    bytesToTokenAccum.Add(bytes, byteAccum);
                 }
                 // Really what needs to be handled is whether utf8 byte sequence is valid/full etc.
                 else
                 {
-                    var text = Encoding.UTF8.GetString(bytes);
-                    var trimmed = text.Trim(' ');
-                    var maybeTrimmed = trimmed.Length > 0 ? trimmed : text;
-                    if (!textToTokenAccum.TryGetValue(maybeTrimmed, out var accum))
+                    var span = chars.AsSpan()[..charsWritten];
+                    var textOriginal = new string(span);
+
+                    var trimmed = span.Trim(' ');
+                    var maybeTrimmed = trimmed.Length > 0 ? trimmed : span;
+                    var textNormalized = new string(maybeTrimmed).ToLowerInvariant();
+                    var bytesNormalized = Encoding.UTF8.GetBytes(textNormalized);
+                    if (!bytesToTokenAccum.TryGetValue(bytesNormalized, out var accum))
                     {
-                        var lower = maybeTrimmed.ToLowerInvariant();
-                        accum = new();
-                        textToTokenAccum.Add(lower, accum);
+                        accum = new(textNormalized);
+                        bytesToTokenAccum.Add(bytesNormalized, accum);
                     }
-                    accum.Tokens.Add(new(bytes, text, token));
+                    accum.Tokens.Add(new(bytes, textOriginal, token));
                 }
             }
-            Log($"{fileName} {textToTokenAccum.Count} if ordinal ignore case and trim spaces");
+            Log($"{fileName} {vocabulary.Count} tokens {bytesToTokenAccum.Count} tokens if ignore case and trim spaces ({1 - (bytesToTokenAccum.Count / (double)vocabulary.Count):P2} less)");
 
-            var sorted = textToTokenAccum.OrderByDescending(kv => kv.Value.Tokens.Count).ToList();
+            var sorted = bytesToTokenAccum.OrderByDescending(kv => kv.Value.Tokens.Count).ToList();
 
-            foreach (var (normText, accum) in sorted.Take(8))
+            Log("REPEATED TOKENS");
+            foreach (var (normText, accum) in sorted.Take(20))
             {
-                Log($"'{normText}' Count {accum.Tokens.Count} Tokens: {string.Join(", ", accum.Tokens.Select(t => $"{t.Id}:'{t.Text.Replace("\r", "\\r").Replace("\n", "\\n")}':0x{BitConverter.ToString(t.Bytes)}"))}");
+                Log($"'{EscapeSpecialWhiteSpace(accum.Text)}' Count {accum.Tokens.Count} Tokens: " +
+                    $"{string.Join(", ", accum.Tokens.Select(t => $"'{EscapeSpecialWhiteSpace(t.Text)}':0x{BitConverter.ToString(t.Bytes)}:{t.Id}"))}");
             }
+
+            Log("LONG TOKENS");
+            vocabulary.OrderByDescending(p => p.Key.Length).Take(20).ToList().ForEach(kv =>
+            {
+                var (bytes, token) = kv;
+                var text = Encoding.UTF8.GetString(bytes);
+                Log($"'{EscapeSpecialWhiteSpace(text)}' Length {bytes.Length} Bytes: {BitConverter.ToString(bytes)}");
+            });
+
+            static string EscapeSpecialWhiteSpace(string t) =>
+                t.Replace("\t", "\\t").Replace("\r", "\\r").Replace("\n", "\\n");
         }
 
         [TestMethod]

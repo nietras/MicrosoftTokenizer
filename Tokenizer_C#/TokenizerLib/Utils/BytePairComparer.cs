@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 namespace Microsoft.DeepDev.TokenizerLib.Utils
 {
-    internal class ByteArrayComparer : IEqualityComparer<byte[]>
+    public class ByteArrayComparer : IEqualityComparer<byte[]>
     {
         public bool Equals(byte[] x, byte[] y)
         {
